@@ -35,6 +35,11 @@ class CameraViewModelTest {
     }
 
     @Test
+    fun `initial state - uses back camera`() {
+        assertFalse(viewModel.isFrontCamera.value)
+    }
+
+    @Test
     fun `startSession - activates session and resets count`() {
         viewModel.startSession()
         assertTrue(viewModel.isSessionActive.value)
@@ -49,15 +54,34 @@ class CameraViewModelTest {
     }
 
     @Test
-    fun `onPermissionGranted - sets permission flag`() {
-        viewModel.onPermissionGranted()
+    fun `onPermissionResult granted - sets permission flag`() {
+        viewModel.onPermissionResult(true)
         assertTrue(viewModel.hasCameraPermission.value)
+    }
+
+    @Test
+    fun `onPermissionResult denied - permission stays false`() {
+        viewModel.onPermissionResult(false)
+        assertFalse(viewModel.hasCameraPermission.value)
+    }
+
+    @Test
+    fun `toggleCamera - switches from back to front`() {
+        assertFalse(viewModel.isFrontCamera.value)
+        viewModel.toggleCamera()
+        assertTrue(viewModel.isFrontCamera.value)
+    }
+
+    @Test
+    fun `toggleCamera twice - returns to back camera`() {
+        viewModel.toggleCamera()
+        viewModel.toggleCamera()
+        assertFalse(viewModel.isFrontCamera.value)
     }
 
     @Test
     fun `startSession after stop - resets count to zero`() {
         viewModel.startSession()
-        // In later phases, count will increment during session
         viewModel.stopSession()
         viewModel.startSession()
         assertEquals(0, viewModel.count.value)

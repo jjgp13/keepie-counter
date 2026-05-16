@@ -19,18 +19,23 @@ class CameraViewModel @Inject constructor() : ViewModel() {
     private val _hasCameraPermission = MutableStateFlow(false)
     val hasCameraPermission: StateFlow<Boolean> = _hasCameraPermission.asStateFlow()
 
-    fun onPermissionGranted() {
-        _hasCameraPermission.value = true
+    private val _isFrontCamera = MutableStateFlow(false)
+    val isFrontCamera: StateFlow<Boolean> = _isFrontCamera.asStateFlow()
+
+    fun onPermissionResult(granted: Boolean) {
+        _hasCameraPermission.value = granted
+    }
+
+    fun toggleCamera() {
+        _isFrontCamera.value = !_isFrontCamera.value
     }
 
     fun startSession() {
         _count.value = 0
         _isSessionActive.value = true
-        // Camera pipeline and detectors will be started in Phase 2-5
     }
 
     fun stopSession() {
         _isSessionActive.value = false
-        // Session will be saved in Phase 7
     }
 }
