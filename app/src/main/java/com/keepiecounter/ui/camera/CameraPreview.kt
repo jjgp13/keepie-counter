@@ -8,26 +8,24 @@ import androidx.compose.ui.Modifier
 import androidx.compose.ui.platform.LocalContext
 import androidx.compose.ui.viewinterop.AndroidView
 import androidx.lifecycle.compose.LocalLifecycleOwner
+import com.keepiecounter.detection.ball.BallDetector
+import com.keepiecounter.detection.ball.BallTracker
+import com.keepiecounter.detection.pose.KickDetector
+import com.keepiecounter.detection.pose.PoseAnalyzer
 
 /**
  * Composable that displays a CameraX preview and manages camera lifecycle.
  *
- * - Creates a PreviewView and a CameraManager.
- * - Binds the camera in a DisposableEffect keyed on [useFrontCamera], so toggling
- *   the camera triggers unbind → rebind automatically.
- * - Shuts down the CameraManager when leaving composition.
- *
- * @param useFrontCamera Whether to use the front-facing camera.
- * @param isSessionActive Whether detection analysis is active (gates frame dispatch).
- * @param cameraManagerReady Callback providing the CameraManager so the parent can
- *                           register FrameAnalyzers (used in Phase 3+).
+ * Registers BallDetector and PoseAnalyzer as frame analyzers so that
+ * the full detection pipeline runs on each camera frame.
  */
 @Composable
 fun CameraPreview(
     useFrontCamera: Boolean,
     isSessionActive: Boolean,
-    modifier: Modifier = Modifier,
-    cameraManagerReady: (CameraManager) -> Unit = {}
+    ballTracker: BallTracker,
+    kickDetector: KickDetector,
+    modifier: Modifier = Modifier
 ) {
     val context = LocalContext.current
     val lifecycleOwner = LocalLifecycleOwner.current
@@ -39,8 +37,14 @@ fun CameraPreview(
         }
     }
 
+    val ballDetector = remember { BallDetector(ballTracker) }
+    val poseAnalyzer = remember { PoseAnalyzer(kickDetector) }
+
     val cameraManager = remember {
-        CameraManager().also { cameraManagerReady(it) }
+        CameraManager().also { manager ->
+            manager.addAnalyzer(ballDetector)
+            manager.addAnalyzer(poseAnalyzer)
+        }
     }
 
     // Gate analysis on session state
@@ -54,10 +58,12 @@ fun CameraPreview(
         }
     }
 
-    // Shut down executor when leaving composition entirely
+    // Shut down when leaving composition
     DisposableEffect(Unit) {
         onDispose {
             cameraManager.shutdown()
+            ballDetector.close()
+            poseAnalyzer.close()
         }
     }
 

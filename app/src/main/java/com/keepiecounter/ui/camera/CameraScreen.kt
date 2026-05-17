@@ -77,6 +77,8 @@ fun CameraScreen(
             CameraPreview(
                 useFrontCamera = isFrontCamera,
                 isSessionActive = isSessionActive,
+                ballTracker = viewModel.ballTracker,
+                kickDetector = viewModel.kickDetector,
                 modifier = Modifier.fillMaxSize()
             )
         } else {

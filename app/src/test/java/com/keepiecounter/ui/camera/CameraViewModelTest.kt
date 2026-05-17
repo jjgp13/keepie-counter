@@ -47,6 +47,21 @@ class CameraViewModelTest {
     }
 
     @Test
+    fun `startSession resets detectors`() {
+        // Simulate a count
+        viewModel.keepieCounter.onBallMovingUp(1000L)
+        viewModel.keepieCounter.onKickDetected(
+            com.keepiecounter.detection.pose.KickDetector.KickResult(
+                true, com.keepiecounter.detection.pose.KickDetector.Foot.LEFT, 0.8f, 1050L
+            )
+        )
+        assertEquals(1, viewModel.count.value)
+
+        viewModel.startSession()
+        assertEquals(0, viewModel.count.value)
+    }
+
+    @Test
     fun `stopSession - deactivates session`() {
         viewModel.startSession()
         viewModel.stopSession()
