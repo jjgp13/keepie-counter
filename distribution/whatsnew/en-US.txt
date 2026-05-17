@@ -1,0 +1,6 @@
+Initial release of Keepie Counter!
+• Real-time ball tracking and kick detection
+• Automatic keepie-uppie counting
+• Session history with personal best tracking
+• Haptic feedback on each count
+• Front/back camera support
