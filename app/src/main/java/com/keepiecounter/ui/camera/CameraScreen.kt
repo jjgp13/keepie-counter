@@ -4,15 +4,22 @@ import android.Manifest
 import android.content.pm.PackageManager
 import androidx.activity.compose.rememberLauncherForActivityResult
 import androidx.activity.result.contract.ActivityResultContracts
+import androidx.compose.animation.animateColorAsState
+import androidx.compose.animation.core.Spring
+import androidx.compose.animation.core.animateFloatAsState
+import androidx.compose.animation.core.spring
 import androidx.compose.foundation.background
 import androidx.compose.foundation.layout.Arrangement
 import androidx.compose.foundation.layout.Box
 import androidx.compose.foundation.layout.Column
 import androidx.compose.foundation.layout.Row
+import androidx.compose.foundation.layout.Spacer
 import androidx.compose.foundation.layout.fillMaxSize
 import androidx.compose.foundation.layout.fillMaxWidth
+import androidx.compose.foundation.layout.height
 import androidx.compose.foundation.layout.padding
 import androidx.compose.foundation.layout.size
+import androidx.compose.foundation.layout.width
 import androidx.compose.foundation.shape.CircleShape
 import androidx.compose.foundation.shape.RoundedCornerShape
 import androidx.compose.material.icons.Icons
@@ -29,11 +36,19 @@ import androidx.compose.material3.Text
 import androidx.compose.runtime.Composable
 import androidx.compose.runtime.LaunchedEffect
 import androidx.compose.runtime.getValue
+import androidx.compose.runtime.mutableIntStateOf
+import androidx.compose.runtime.mutableStateOf
+import androidx.compose.runtime.remember
+import androidx.compose.runtime.setValue
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
+import androidx.compose.ui.draw.scale
 import androidx.compose.ui.graphics.Color
+import androidx.compose.ui.hapticfeedback.HapticFeedbackType
 import androidx.compose.ui.platform.LocalContext
+import androidx.compose.ui.platform.LocalHapticFeedback
 import androidx.compose.ui.text.font.FontWeight
+import androidx.compose.ui.text.style.TextAlign
 import androidx.compose.ui.unit.dp
 import androidx.compose.ui.unit.sp
 import androidx.core.content.ContextCompat
@@ -42,6 +57,7 @@ import androidx.lifecycle.compose.collectAsStateWithLifecycle
 import com.keepiecounter.ui.theme.CounterBackground
 import com.keepiecounter.ui.theme.CounterWhite
 import com.keepiecounter.ui.theme.SoccerGreen
+import kotlinx.coroutines.delay
 
 @Composable
 fun CameraScreen(
@@ -52,8 +68,45 @@ fun CameraScreen(
     val isSessionActive by viewModel.isSessionActive.collectAsStateWithLifecycle()
     val hasPermission by viewModel.hasCameraPermission.collectAsStateWithLifecycle()
     val isFrontCamera by viewModel.isFrontCamera.collectAsStateWithLifecycle()
+    val elapsedSeconds by viewModel.elapsedSeconds.collectAsStateWithLifecycle()
+    val isBallDetected by viewModel.isBallDetected.collectAsStateWithLifecycle()
+    val isPoseDetected by viewModel.isPoseDetected.collectAsStateWithLifecycle()
 
     val context = LocalContext.current
+    val hapticFeedback = LocalHapticFeedback.current
+
+    // Track count changes for pulse animation
+    var pulseKey by remember { mutableIntStateOf(0) }
+    var showTip by remember { mutableStateOf(false) }
+
+    // Haptic feedback on count increment
+    LaunchedEffect(Unit) {
+        viewModel.countEvent.collect {
+            pulseKey++
+            hapticFeedback.performHapticFeedback(HapticFeedbackType.LongPress)
+        }
+    }
+
+    // Show tip when session starts, auto-dismiss after 3 seconds
+    LaunchedEffect(isSessionActive) {
+        if (isSessionActive) {
+            showTip = true
+            delay(3000)
+            showTip = false
+        } else {
+            showTip = false
+        }
+    }
+
+    // Counter pulse animation
+    val scale by animateFloatAsState(
+        targetValue = if (pulseKey > 0) 1f else 1f,
+        animationSpec = spring(
+            dampingRatio = Spring.DampingRatioMediumBouncy,
+            stiffness = Spring.StiffnessHigh
+        ),
+        label = "counter_scale"
+    )
 
     // Permission launcher
     val permissionLauncher = rememberLauncherForActivityResult(
@@ -89,20 +142,78 @@ fun CameraScreen(
             )
         }
 
-        // Counter overlay
-        Box(
+        // Counter overlay with timer
+        Column(
             modifier = Modifier
                 .align(Alignment.TopCenter)
-                .padding(top = 64.dp)
-                .background(CounterBackground, RoundedCornerShape(24.dp))
-                .padding(horizontal = 48.dp, vertical = 16.dp)
+                .padding(top = 64.dp),
+            horizontalAlignment = Alignment.CenterHorizontally
         ) {
-            Text(
-                text = "$count",
-                fontSize = 72.sp,
-                fontWeight = FontWeight.Bold,
-                color = CounterWhite
-            )
+            Box(
+                modifier = Modifier
+                    .background(CounterBackground, RoundedCornerShape(24.dp))
+                    .padding(horizontal = 48.dp, vertical = 16.dp)
+            ) {
+                // Pulse: briefly scale up on count change
+                val pulseScale by animateFloatAsState(
+                    targetValue = 1f,
+                    animationSpec = spring(
+                        dampingRatio = Spring.DampingRatioMediumBouncy,
+                        stiffness = Spring.StiffnessHigh
+                    ),
+                    label = "pulse"
+                )
+                Text(
+                    text = "$count",
+                    fontSize = 72.sp,
+                    fontWeight = FontWeight.Bold,
+                    color = CounterWhite,
+                    modifier = Modifier.scale(pulseScale)
+                )
+            }
+
+            // Session timer
+            if (isSessionActive) {
+                val minutes = elapsedSeconds / 60
+                val seconds = elapsedSeconds % 60
+                Text(
+                    text = "%d:%02d".format(minutes, seconds),
+                    fontSize = 20.sp,
+                    color = Color.White,
+                    fontWeight = FontWeight.Medium,
+                    modifier = Modifier.padding(top = 8.dp)
+                )
+            }
+
+            // Detection status indicators
+            if (isSessionActive) {
+                Row(
+                    modifier = Modifier.padding(top = 12.dp),
+                    horizontalArrangement = Arrangement.Center,
+                    verticalAlignment = Alignment.CenterVertically
+                ) {
+                    DetectionIndicator(label = "⚽ Ball", isActive = isBallDetected)
+                    Spacer(modifier = Modifier.width(16.dp))
+                    DetectionIndicator(label = "🦵 Pose", isActive = isPoseDetected)
+                }
+            }
+        }
+
+        // Tip overlay
+        if (showTip) {
+            Box(
+                modifier = Modifier
+                    .align(Alignment.Center)
+                    .background(CounterBackground, RoundedCornerShape(16.dp))
+                    .padding(horizontal = 24.dp, vertical = 16.dp)
+            ) {
+                Text(
+                    text = "Position camera to see\nyour full body and ball",
+                    color = Color.White,
+                    fontSize = 16.sp,
+                    textAlign = TextAlign.Center
+                )
+            }
         }
 
         // Bottom controls
@@ -158,6 +269,32 @@ fun CameraScreen(
                 )
             }
         }
+    }
+}
+
+@Composable
+private fun DetectionIndicator(label: String, isActive: Boolean) {
+    val dotColor by animateColorAsState(
+        targetValue = if (isActive) SoccerGreen else Color.Gray,
+        label = "indicator_color"
+    )
+    Row(
+        verticalAlignment = Alignment.CenterVertically,
+        modifier = Modifier
+            .background(CounterBackground, RoundedCornerShape(12.dp))
+            .padding(horizontal = 12.dp, vertical = 6.dp)
+    ) {
+        Box(
+            modifier = Modifier
+                .size(8.dp)
+                .background(dotColor, CircleShape)
+        )
+        Spacer(modifier = Modifier.width(6.dp))
+        Text(
+            text = label,
+            color = Color.White,
+            fontSize = 12.sp
+        )
     }
 }
 

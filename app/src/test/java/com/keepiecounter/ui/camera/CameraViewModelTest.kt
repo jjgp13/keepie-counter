@@ -3,6 +3,12 @@ package com.keepiecounter.ui.camera
 import com.keepiecounter.data.local.SessionEntity
 import com.keepiecounter.data.local.SessionDao
 import com.keepiecounter.data.repository.SessionRepository
+import kotlinx.coroutines.Dispatchers
+import kotlinx.coroutines.ExperimentalCoroutinesApi
+import kotlinx.coroutines.test.UnconfinedTestDispatcher
+import kotlinx.coroutines.test.resetMain
+import kotlinx.coroutines.test.setMain
+import org.junit.After
 import org.junit.Assert.assertEquals
 import org.junit.Assert.assertFalse
 import org.junit.Assert.assertTrue
@@ -15,9 +21,11 @@ import kotlinx.coroutines.flow.flowOf
  * Unit tests for CameraViewModel.
  * Tests run on JVM (no Android device needed).
  */
+@OptIn(ExperimentalCoroutinesApi::class)
 class CameraViewModelTest {
 
     private lateinit var viewModel: CameraViewModel
+    private val testDispatcher = UnconfinedTestDispatcher()
 
     // Fake DAO for testing (avoids Room/Android dependency)
     private val fakeDao = object : SessionDao {
@@ -30,7 +38,13 @@ class CameraViewModelTest {
 
     @Before
     fun setup() {
+        Dispatchers.setMain(testDispatcher)
         viewModel = CameraViewModel(SessionRepository(fakeDao))
+    }
+
+    @After
+    fun tearDown() {
+        Dispatchers.resetMain()
     }
 
     @Test
@@ -51,6 +65,17 @@ class CameraViewModelTest {
     @Test
     fun `initial state - uses back camera`() {
         assertFalse(viewModel.isFrontCamera.value)
+    }
+
+    @Test
+    fun `initial state - elapsed seconds is zero`() {
+        assertEquals(0L, viewModel.elapsedSeconds.value)
+    }
+
+    @Test
+    fun `initial state - detection indicators are false`() {
+        assertFalse(viewModel.isBallDetected.value)
+        assertFalse(viewModel.isPoseDetected.value)
     }
 
     @Test
@@ -75,10 +100,24 @@ class CameraViewModelTest {
     }
 
     @Test
+    fun `startSession resets elapsed seconds`() {
+        viewModel.startSession()
+        assertEquals(0L, viewModel.elapsedSeconds.value)
+    }
+
+    @Test
     fun `stopSession - deactivates session`() {
         viewModel.startSession()
         viewModel.stopSession()
         assertFalse(viewModel.isSessionActive.value)
+    }
+
+    @Test
+    fun `stopSession clears detection indicators`() {
+        viewModel.startSession()
+        viewModel.stopSession()
+        assertFalse(viewModel.isBallDetected.value)
+        assertFalse(viewModel.isPoseDetected.value)
     }
 
     @Test

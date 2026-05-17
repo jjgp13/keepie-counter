@@ -105,6 +105,7 @@ dependencies {
     testImplementation("junit:junit:4.13.2")
     testImplementation("org.mockito:mockito-core:5.12.0")
     testImplementation("org.mockito.kotlin:mockito-kotlin:5.4.0")
+    testImplementation("org.jetbrains.kotlinx:kotlinx-coroutines-test:1.8.1")
     androidTestImplementation("androidx.test.ext:junit:1.2.1")
     androidTestImplementation("androidx.test.espresso:espresso-core:3.6.1")
     androidTestImplementation(platform("androidx.compose:compose-bom:2024.06.00"))
