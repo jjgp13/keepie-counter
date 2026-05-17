@@ -1,10 +1,15 @@
 package com.keepiecounter.ui.camera
 
+import com.keepiecounter.data.local.SessionEntity
+import com.keepiecounter.data.local.SessionDao
+import com.keepiecounter.data.repository.SessionRepository
 import org.junit.Assert.assertEquals
 import org.junit.Assert.assertFalse
 import org.junit.Assert.assertTrue
 import org.junit.Before
 import org.junit.Test
+import kotlinx.coroutines.flow.Flow
+import kotlinx.coroutines.flow.flowOf
 
 /**
  * Unit tests for CameraViewModel.
@@ -14,9 +19,18 @@ class CameraViewModelTest {
 
     private lateinit var viewModel: CameraViewModel
 
+    // Fake DAO for testing (avoids Room/Android dependency)
+    private val fakeDao = object : SessionDao {
+        val sessions = mutableListOf<SessionEntity>()
+        override suspend fun insert(session: SessionEntity) { sessions.add(session) }
+        override fun getAllSessions(): Flow<List<SessionEntity>> = flowOf(sessions.toList())
+        override suspend fun getPersonalBest(): Int? = sessions.maxByOrNull { it.count }?.count
+        override suspend fun getSessionCount(): Int = sessions.size
+    }
+
     @Before
     fun setup() {
-        viewModel = CameraViewModel()
+        viewModel = CameraViewModel(SessionRepository(fakeDao))
     }
 
     @Test
@@ -48,7 +62,6 @@ class CameraViewModelTest {
 
     @Test
     fun `startSession resets detectors`() {
-        // Simulate a count
         viewModel.keepieCounter.onBallMovingUp(1000L)
         viewModel.keepieCounter.onKickDetected(
             com.keepiecounter.detection.pose.KickDetector.KickResult(

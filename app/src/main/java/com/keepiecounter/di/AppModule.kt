@@ -1,15 +1,27 @@
 package com.keepiecounter.di
 
+import android.content.Context
+import com.keepiecounter.data.local.AppDatabase
+import com.keepiecounter.data.local.SessionDao
 import dagger.Module
+import dagger.Provides
 import dagger.hilt.InstallIn
+import dagger.hilt.android.qualifiers.ApplicationContext
 import dagger.hilt.components.SingletonComponent
+import javax.inject.Singleton
 
 @Module
 @InstallIn(SingletonComponent::class)
 object AppModule {
-    // Dependencies will be provided here as we build each phase:
-    // - Phase 3: BallDetector, BallTracker
-    // - Phase 4: PoseDetector, KickDetector
-    // - Phase 5: KeepieCounter
-    // - Phase 7: AppDatabase, SessionDao, SessionRepository
+
+    @Provides
+    @Singleton
+    fun provideDatabase(@ApplicationContext context: Context): AppDatabase {
+        return AppDatabase.getInstance(context)
+    }
+
+    @Provides
+    fun provideSessionDao(database: AppDatabase): SessionDao {
+        return database.sessionDao()
+    }
 }
